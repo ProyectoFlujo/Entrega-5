@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 from gurobipy import *
 import time
 
+### Se importan las instancias y todos los datos, dependiendo el archivo de datos que se desea solo se cambia lo que esta dentro de las comillas al archivo que se quiere usar
+### Es decir, si se quiere usar los datos14, se cambia el datos136 por datos14
 file_path = 'datos136.txt'
 
 def read_data(file_path):
@@ -89,7 +91,6 @@ vmin = d['vmin']
 vmax = d['vmax']
 zbase = d['zbase']
 
-
 R = {}
 X = {}
 Z = {}
@@ -134,7 +135,6 @@ G.add_nodes_from(N)
 G.add_edges_from(B)
 
 def generar_pos(G):
-
     roots = {n:(d,list(G.successors(n))) for n,d in G.in_degree()}
     t=len(roots)
 
@@ -182,7 +182,11 @@ else:
 M=100000
 Imax = 800
 
-#GENERAR ARBOR INICIAL CON EL SIGUIENTE MODELO RELAJADO
+### SE GENERA EL ARBOL INICIAL CON EL SIGUIENTE MODELO RELAJADO
+### Funciones que utiliza el algoritmo para resolver esto mas rapidamente. Consiste basicamente en crear un algoritmo constructivo, que es como el mismo modelo pero relajado, 
+### entonces los arcos se corren por las direcciones por defecto de la instancia y no solo en una direccion, haciendo que se facilite mucho el modelo y adicionalmente se relajan 
+### las restricciones, por ejemplo la de voltaje no se pone en igualdad, se usa >= y mas adelante se evalua, generando que se contruyan soluciones muy rapidas y da una buena cota inicial
+
 def relax():
     m = Model("RSD_relax")
     m.setParam('OutputFlag',0)
@@ -224,6 +228,8 @@ def relax():
         y_init[edge]=y[edge].x
     return y_init
 
+
+### Este es otro constructivo ya que hay algunas instancias que no funciona tan bien, entonces siempre se corre el relax() de primeras, si no se genera ninguna solucion se corre este, la logica es muy parecida
 def constructivo():
     m = Model("RSD_relax")
     m.setParam('OutputFlag',0)
@@ -324,6 +330,9 @@ def constructivo():
             hijos=[]
     return sum(I[i,j]*R[i,j] for i,j in B),p,q,V,I,Arcos
 
+
+### Otro metodo el cual evalua las dos restricciones en las cuales en ves de ponerse la igualdad se puso mayor igual, para ya ponerlas en igualdad al final, al inicio se corre en un peque;o modelo el voltaje y la corriente,
+### despues, las pone en igualdad 
 def evaluar(Arcos):
     m = Model("RSD")
     m.setParam('OutputFlag',0) 
@@ -382,7 +391,8 @@ def evaluar(Arcos):
         else:
             hijos=[]
     return sum(I[i,j]*R[i,j] for i,j in Arcos),p,q,V,I,Arcos
-    
+
+### Este metodo es el mismo metodo anterior, solamente que corre mas rapido, por ende se recomienda correr este 
 def evaluar2(Arcos):
     m = Model("RSD")
     m.setParam('OutputFlag',0) 
@@ -428,6 +438,7 @@ def evaluar2(Arcos):
     else:
         return -1,-1
 
+### Esta funcion se le ingresa el grafo, el arco a agregar y los arcos activos, y retorna cual arco se debe quitar para que siga siendo un arbol
 def is_cycle_free(graph, edge_to_add, Arcs):
     temp_graph = graph.copy()
     temp_graph.add_edge(*edge_to_add)
@@ -440,6 +451,7 @@ def is_cycle_free(graph, edge_to_add, Arcs):
             quitar=(j,i)
     return False, quitar
 
+### Este sirve para visualizar el arbol 
 def visualize_tree(graph):
     pos = generar_pos(graph)
     fig, ax = plt.subplots(figsize=(15, 10))
@@ -448,7 +460,11 @@ def visualize_tree(graph):
 
 
 inicio = time.time()
-    
+
+
+### Se tiene la variable arcos vacia, la cual se inicia sin ningun arbol factible, con el primero, el relax que es el constructivo, da una solucion, y con eso esos arcos activos se va llenando con la informacion de solucion que dio el constructivo.
+### Inactivos son los arcos que no quedaron activos
+
 Arcos = []
 Inactivos = []
 y_init = relax()
@@ -461,12 +477,15 @@ for edge in B1:
     else:
         Inactivos.append(edge)
 
+### Se hace esta parte de evaluar2 (ya que es la mas rapida) para que retorne la solucion factible que cumpla con las restricciones, incluyendo la de voltaje
 best=evaluar2(Arcos)
 
+### Si no se da ninguna solucion factible, se utiliza el constructivo 2, es decir constructivo(), y ya da una solucion factible que cumple con todas las restricciones
 if best[0]==-1:
     best=constructivo()
     Arcos = best[5]
 
+### Solo se usa si se corre el nuevo constructivo
 Inactivos = []
 for edge in B1:
     if edge in B:
@@ -475,6 +494,7 @@ for edge in B1:
     else:
         Inactivos.append(edge)
 
+### Se crea el grafo y para cuando deja de mejorar, revisa todos los arcos inactivos con un for y los intenta meter al grafo si es factible y minimiza la funcion objetivo. Agrega el arco y saca otro, repite hasta que deje de mejorar. 
 G = nx.Graph()
 G.add_nodes_from(N)
 G.add_edges_from(Arcos)
