@@ -499,6 +499,7 @@ G = nx.Graph()
 G.add_nodes_from(N)
 G.add_edges_from(Arcos)
 
+### Se imprimen los factibles
 print(best[0]*sbase, f' {time.time()-inicio} s')
 mejoro=True
 while mejoro == True:
@@ -522,7 +523,8 @@ while mejoro == True:
                     mejoro=True
                     print(best[0]*sbase, f' {time.time()-inicio} s')
                     break
-                    
+
+### Se imprimer el tiempo que se demoro
 print(f'Tiempo Corrida = {time.time()-inicio} s')                 
 G = nx.DiGraph()
 G.add_nodes_from(N)
